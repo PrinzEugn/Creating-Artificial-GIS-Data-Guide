@@ -1,7 +1,7 @@
 Creating Artificial GIS Data with Open Source Tools
 ================
 Mark Simpson
-July 25, 2018
+July 27, 2018
 
 Introduction
 ============

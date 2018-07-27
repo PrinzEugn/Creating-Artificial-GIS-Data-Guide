@@ -1,7 +1,7 @@
 ---
 title: "Creating Artificial GIS Data with Open Source Tools"
 author: "Mark Simpson"
-date: "July 25, 2018"
+date: "July 27, 2018"
 
 output: github_document
 ---
