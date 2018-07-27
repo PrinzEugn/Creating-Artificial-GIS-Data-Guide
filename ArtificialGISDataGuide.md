@@ -93,33 +93,47 @@ image <- brick(filename)
 image.grid <- as(image, 'SpatialGridDataFrame')
 
 # Resolution ("cells dimension")
-print(paste("Resolution:", image.grid@grid@cells.dim))
+image.grid@grid@cells.dim
 ```
 
-    ## [1] "Resolution: 1778" "Resolution: 1452"
+    ## [1] 1778 1452
+
+The resolution is 1778 by 1452, which becomes the limits of our x ("longitude") and y ("latitude") coordinate system. Plotting a true-color image is a little easier using ggRGB() function from the RStoolbox package than with vanilla ggplot(), which we'll get into later.
 
 ``` r
 # plot image to test
 ggRGB(image) +
+    
+    # Keep title from drawing
     theme(axis.title = element_blank()) +
+    
+    # set background fill to nothing, and draw the panels on top of the image
     theme( panel.background = element_rect(fill = NA),
         panel.ontop = TRUE )
 ```
 
 ![](ArtificialGISDataGuide_files/figure-markdown_github-ascii_identifiers/plot_muscatatuck-1.png)
 
-The resolution is 1778 by 1452, which becomes the limits of our x ("longitude") and y ("latitude") coordinate system. To make sure everything is aligned properly, and to see where are coordinate values fall on the image, we can alter the ggplot-based grid, and draw it on top of the image.
+To make sure everything is aligned properly, and to see where are coordinate values fall on the image, we can alter the ggplot-based grid, and draw it on top of the image.
 
 ``` r
 # plot image with reference grid
 ggRGB(image) +
+    
+    # Keep title from drawing
     theme(axis.title = element_blank()) +
+    
+    # set background fill to nothing, change grid colors, draw the panels on top 
+    #   of the image
     theme( panel.background = element_rect(fill = NA),
            panel.grid.major = element_line( color = "white"),
            panel.grid.minor = element_line(color = "gray60"),
            panel.ontop = TRUE ) +
+    
+    # Override grid spacing (breaks) with pretty_breaks function 
     scale_x_continuous(breaks = scales::pretty_breaks(n = 10), 
                        expand = c(0,0)) +
+    
     scale_y_continuous(breaks = scales::pretty_breaks(n = 10), 
                        expand = c(0,0))
 ```
@@ -134,7 +148,7 @@ In Inkscape I created sets of points, and polygonal boundaries. These do not ref
 Reading in the points
 ---------------------
 
-Since the raw points .dxf is really a series of small triangles, we can just get the centroids of those triangles to use as the points. Let's do that, check that they are the correct class (SpatialPoints), and then plot them.
+Reading the points is pretty straightforward with the readOGR() Since the raw points .dxf is really a series of small triangles, we can just get the centroids of those triangles to use as the points. Let's do that, check that they are the correct class (SpatialPoints), and then plot them.
 
 ``` r
 # Read dxf created in Inkscape, will import as lines
@@ -150,7 +164,7 @@ points.dxf <- readOGR(dsn = "PointsTest.dxf")
 # use rgeos to get centroid of triangles made in Inkscape
 points <-  gCentroid(points.dxf, byid = TRUE)
 
-# should be SpatialPoints
+# Check class, should be SpatialPoints
 class(points)
 ```
 
@@ -182,7 +196,7 @@ y <-  runif(150, 0, 1458)
 # bind into new dataframe
 points.3 <- as.data.frame(cbind(x, y))
 
-# convert to spatial points for kde raster
+# convert to spatial points for heatmap process later
 points.3.spat <- SpatialPoints(points.3)
 
 plot(points.3.spat)
@@ -206,13 +220,15 @@ borders.raw <- readOGR(dsn = "BordersTest.dxf")
     ## It has 6 fields
 
 ``` r
-# Loads as SpatialLinesDataFrame
+# Check class, loads as SpatialLinesDataFrame
 class(borders.raw)
 ```
 
     ## [1] "SpatialLinesDataFrame"
     ## attr(,"package")
     ## [1] "sp"
+
+We have spatial *lines*, but what we really need are *polygons*...
 
 ``` r
 ## use sf package to convert lines from dxf into polygons
@@ -225,8 +241,6 @@ borders.polygon <- st_polygonize(borders.sf)
 # convert back to spatial polygon
 borders <- as(borders.polygon, "Spatial")
 
-
-
 # Should be SpatialPolygonsDataFrame
 class(borders)
 ```
@@ -235,7 +249,7 @@ class(borders)
     ## attr(,"package")
     ## [1] "sp"
 
-Now we can go ahead and plot it out:
+Now we can go ahead and plot it out with "slategray" as the color:
 
 ``` r
 #test Plot
@@ -246,7 +260,7 @@ plot(borders, col = "slategray")
 
 Wow. Just wow. It's... definitely shapes.
 
-We also need to do a little bit of setup for later mapping, by giving the polygons ID numbers. Note the indexing syntax of the SpatialPolygonsDataFrame is a little weird, you have to access the data "slot" with the *@\* symbol. From there, it indexes like any other dataframe in R with the *$\* symbol.
+We also need to do a little bit of setup for later mapping, by giving the polygons ID numbers. Note the indexing syntax of the SpatialPolygonsDataFrame object is a little weird, you have to access the data "slot" with the *@\* symbol. From there, it indexes like any other dataframe in R with the *$\* symbol.
 
 ``` r
 #create id field for merging later, needs to be 0-11
@@ -278,7 +292,9 @@ Now that we have the points and polygons we want, we can go ahead and plot them 
 Plotting Points 1
 -----------------
 
-Instead of using the default plotting function, which is somewhat limited, it's better to use ggplot(). Unfortunately ggplot() is horrendously weird when it comes to syntax. Generally, you can conceptualize a plot as a series of layers and attributes, which are created and modified using a series of stacked functions. For example, below geom\_point() draws the points on an empty ggplot(), with the given data and aesthetic (*aes()* ) mapping. The rest is just the various things parameters of the plot that need to be deleted or made transparent so our final image is just the image, and doesn't come with a bunch of extraneous labels.
+Instead of using the default plotting function, which is somewhat limited, it's better to use ggplot(). Unfortunately ggplot() is horrendously weird when it comes to syntax.
+
+Generally, you can conceptualize a plot as a series of layers and attributes, which are created and modified using a series of stacked functions. For example, below geom\_point() draws the points on an empty ggplot(), with the given data and aesthetic (*aes()* ) mapping (like use "x" for the x dimension placement). The rest is just the various things parameters of the plot that need to be deleted or made transparent so our final image is just the image, and doesn't come with a bunch of extraneous labels. We also have to manually set the "limits" of the plot or there will be a large buffer of white space around the image.
 
 ``` r
 points.map <- ggplot() +
@@ -292,6 +308,8 @@ points.map <- ggplot() +
 
     # removes all theme stuff, theme_nothing from cowplot package
     theme_nothing() +
+    
+    #manually set limits of x and y with no buffer
     scale_x_continuous(limits = c(0, 1778), expand = c(0,0)) +
     scale_y_continuous(limits = c(0, 1452), expand = c(0,0)) +
     labs(x = NULL, y = NULL) +
@@ -332,8 +350,8 @@ points.map
 dev.off()
 ```
 
-Plotting Borders
-----------------
+Plotting Polygons (Borders)
+---------------------------
 
 This is extremely similar to the above, but with addition of needing to "fortify" the borders object, which rearranges certain spatial datatypes into a ggplot-friendly format. Since the lines are white, when plotting the example, we just need to override the transparent background.
 
@@ -428,6 +446,8 @@ point.dens.df <- as.data.frame(point.dens)
 
 Plotting the heatmap is in aggregate pretty similar to plotting the vector geometry, we just need to use the geom\_tile() ggplot function with the appropriate variables. In this case we are making areas of fewer points more transparent so its easy to layer in the virtual environment, while using only one color (red) rather than a color ramp like in the default plot above.
 
+NOTE: For some reason the rendering on my laptop produces white lines on the image, which are not present when written to disk with a PNG device.
+
 ``` r
 # Plot it out
 heatmap.alpha <- ggplot() + 
@@ -476,8 +496,8 @@ heatmap.alpha
 dev.off()
 ```
 
-Heatmap == Heightmap? (B/W Heatmap)
------------------------------------
+Heatmap == Heightmap? (Grayscale Heatmap)
+-----------------------------------------
 
 Now, this is a clever little thing.
 
@@ -505,6 +525,8 @@ heatmap.bw
 ```
 
 ![](ArtificialGISDataGuide_files/figure-markdown_github-ascii_identifiers/KDE_Plotting_BW-1.png)
+
+And of course, exportingL
 
 ``` r
 # designate filename, resolution
@@ -536,16 +558,13 @@ Before we can use color to display density, we actually need to calculate the de
 point.1.chor <- poly.counts(points, borders)/poly.areas(borders)
 ```
 
-Slightly trickier is getting that information attached to the polygons. It needs to be attached to the polygons since they are what are actually being displayed on the map. Once again, this requires accessing the correct "slot" within the SpatialPolygonDataFrame, and then using the fortify() function to make it ggplot() friendly. This time however, we need to make sure to provide a "region" to keep the correct index, because (bizarrely) the "fortified" borders need to be re-joined to the data, resulting in a dataframe that can be fed into ggplot().
+Slightly trickier is getting that information attached to the polygons. It needs to be attached to the polygons since they are what are actually being displayed on the map. Once again, this requires accessing the correct "slot" within the SpatialPolygonDataFrame, and then using the fortify() function to make it ggplot() friendly. This time however, we need to make sure to provide a "region" to keep the correct index, because (bizarrely) the "fortified" borders need to be re-joined to the data, finally resulting in a dataframe that can be fed into ggplot().
 
 Surprisingly, this is actually "the way" to do this.
 
 ``` r
 #add point density to data slot
 borders@data$point.1 <- point.1.chor
-
-#add point counts to data slot
-#borders@data$point.1.count <- point.1.count
 
 # fortify using id to code areas
 borders.fort.2 <- fortify(borders, region = "id")
@@ -627,11 +646,11 @@ So we've seen how to create two visualizations, but those visualizations are dev
 We have all data basically lying around, but there's some work to do to get exactly what we want. First order of business is getting the actual point count and attaching it to our polygon ("borders") data.
 
 ``` r
-# Calculate raw point totals
+# Calculate raw point totals per polygon area
 point.1.count <- poly.counts(points, borders)
 point.3.count <- poly.counts(points.3.spat, borders)
 
-#add point counts to data slot
+#add point counts to data slot in borders
 borders@data$point.1.count <- point.1.count
 borders@data$point.3.count <- point.3.count
 ```
@@ -645,7 +664,7 @@ b.centroids <-  gCentroid(borders, byid = TRUE)
 # convert to df
 b.centroids.df <- as.data.frame(b.centroids)
 
-#add ID field
+# add ID field
 b.centroids.df$id <- 0:11
 
 # Join point fields from borders

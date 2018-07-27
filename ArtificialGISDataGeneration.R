@@ -36,8 +36,7 @@
 ## Created June-July 2018
 
 # Setup ------------------------------------------------------------
-#### Set working directory ####
-setwd("C:/Users/Mark/OneDrive/Documents/Summer 2018/Aberdeen/Muscatatuck")
+setwd("~/GitHub/Creating-Artificial-GIS-Data-Guide")
 
 # Clear workspace
 rm(list = ls())
@@ -46,7 +45,7 @@ rm(list = ls())
 
 library(dplyr)
 library(ggplot2)
-#install.packages("viridis")
+#install.packages("dplyr", "ggplot")
 
 library(raster)
 library(rgdal)
@@ -204,6 +203,7 @@ plot(points.3.spat, pch = 17, col = "green", add = TRUE)
 # Create writeable plot
 # 
 points.map <- ggplot() +
+    
     # call points as dataframe
     geom_point(data = as.data.frame(points), 
                aes(x = x, y = y), 
@@ -718,7 +718,6 @@ write.csv(as.data.frame(points), file = "points_1.csv", row.names = FALSE)
 write.csv(as.data.frame(points.2), file = "points_2.csv", row.names = FALSE)
 
 write.csv(as.data.frame(points.3), file = "points_3.csv", row.names = FALSE)
-
 
 
 # Choropleth Map ----------------------------------------------------------
